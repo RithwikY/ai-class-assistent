@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCET Geo & Face Attendance System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <style>
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.75);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
+
+    <!-- TOP NAVBAR -->
+    <header class="bg-slate-800/80 backdrop-blur-md border-b border-slate-700/50 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-emerald-500/10 p-2 rounded-xl border border-emerald-500/20 text-emerald-400">
+                    <i data-lucide="shield-check" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold text-slate-100 tracking-tight">ASCET Smart Attendance</h1>
+                    <p class="text-[10px] text-slate-400 font-medium">Real-Time Face + GPS Verification</p>
+                </div>
+            </div>
+
+            <!-- USER / AUTH BADGE -->
+            <div id="nav-user-area" class="flex items-center space-x-3">
+                <!-- Populated dynamically via JS -->
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- TAB NAVIGATION -->
+        <nav id="app-tabs" class="hidden flex space-x-2 border-b border-slate-700/60 pb-3 mb-6 overflow-x-auto">
+            <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="px-4 py-2 text-xs font-bold rounded-xl transition flex items-center space-x-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                <span>Dashboard</span>
+            </button>
+            <button onclick="switchTab('geo-attendance')" id="tab-btn-geo-attendance" class="px-4 py-2 text-xs font-bold rounded-xl transition flex items-center space-x-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800">
+                <i data-lucide="map-pin" class="w-4 h-4"></i>
+                <span>Mark Attendance</span>
+            </button>
+            <button onclick="switchTab('timetable')" id="tab-btn-timetable" class="px-4 py-2 text-xs font-bold rounded-xl transition flex items-center space-x-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800">
+                <i data-lucide="calendar" class="w-4 h-4"></i>
+                <span>Timetable</span>
+            </button>
+        </nav>
+
+        <!-- VIEW 1: LOGIN / SIGNUP VIEW -->
+        <section id="view-auth" class="max-w-md mx-auto my-12 bg-slate-800/90 border border-slate-700/70 rounded-2xl p-6 shadow-2xl backdrop-blur-xl">
+            <div class="flex border-b border-slate-700 mb-6">
+                <button id="auth-tab-login" onclick="switchAuthMode('login')" class="flex-1 py-2 text-sm font-bold text-center text-emerald-400 border-b-2 border-emerald-400">Login</button>
+                <button id="auth-tab-signup" onclick="switchAuthMode('signup')" class="flex-1 py-2 text-sm font-bold text-center text-slate-400 hover:text-slate-200">Register Student</button>
+            </div>
+
+            <!-- LOGIN FORM -->
+            <form id="form-login" onsubmit="handleLoginSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Roll Number / ID</label>
+                    <input type="text" id="login-rollno" placeholder="e.g. 21ASC001 or ADMIN" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+                    <input type="password" id="login-password" placeholder="••••••••" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+                </div>
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3 rounded-xl transition shadow-lg shadow-emerald-600/20">Sign In</button>
+            </form>
+
+            <!-- SIGNUP FORM -->
+            <form id="form-signup" onsubmit="handleSignupSubmit(event)" class="hidden space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Full Name</label>
+                    <input type="text" id="signup-name" placeholder="Student Name" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Roll Number</label>
+                    <input type="text" id="signup-rollno" placeholder="e.g. 21ASC001" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Section</label>
+                    <select id="signup-section" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
+                        <option value="CSE-A">CSE - Section A</option>
+                        <option value="CSE-B">CSE - Section B</option>
+                        <option value="CSE-C">CSE - Section C</option>
+                        <option value="CSE-H">CSE - Section H</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+                    <input type="password" id="signup-password" placeholder="Create password" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+                </div>
+
+                <!-- Face Registration Section -->
+                <div class="border border-slate-700 bg-slate-900/50 p-3.5 rounded-xl space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-200">Biometric Face Enrollment</span>
+                        <input type="hidden" id="reg-face-token" required>
+                    </div>
+                    <p class="text-[11px] text-slate-400">Capture your face baseline to enable live attendance marking.</p>
+                    <div class="flex items-center justify-between pt-1">
+                        <span id="signup-face-status" class="text-[11px] text-amber-500 font-semibold">Face Registration Required *</span>
+                        <button type="button" id="btn-register-face" onclick="startFaceEnrollment()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition">Register Face</button>
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3 rounded-xl transition shadow-lg shadow-emerald-600/20">Register Student</button>
+            </form>
+        </section>
+
+        <!-- VIEW 2: DASHBOARD -->
+        <section id="view-dashboard" class="hidden space-y-6">
+            <div id="dashboard-header" class="bg-slate-800/60 border border-slate-700/60 p-5 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <!-- User welcome dynamically generated -->
+            </div>
+
+            <!-- Attendance Stats Grid -->
+            <div id="dashboard-stats" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Stats cards dynamically generated -->
+            </div>
+
+            <!-- Attendance Records Table -->
+            <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 overflow-hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-bold text-slate-200 flex items-center space-x-2">
+                        <i data-lucide="history" class="w-4 h-4 text-emerald-400"></i>
+                        <span>Recent Attendance Records</span>
+                    </h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead>
+                            <tr class="border-b border-slate-700 text-slate-400 font-semibold uppercase text-[10px] tracking-wider">
+                                <th class="pb-3 px-2">Student</th>
+                                <th class="pb-3 px-2">Date / Day</th>
+                                <th class="pb-3 px-2">Period / Subject</th>
+                                <th class="pb-3 px-2">Verification</th>
+                                <th class="pb-3 px-2">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-attendance-logs" class="divide-y divide-slate-700/50 text-slate-300">
+                            <!-- Rows inserted dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 3: MARK ATTENDANCE (REAL-TIME VERIFIED) -->
+        <section id="view-geo-attendance" class="hidden max-w-2xl mx-auto space-y-6">
+            <div class="bg-slate-800/80 border border-slate-700/70 rounded-2xl p-6 shadow-xl space-y-6">
+                <div>
+                    <h2 class="text-base font-bold text-slate-100 flex items-center space-x-2">
+                        <i data-lucide="scan-face" class="w-5 h-5 text-emerald-400"></i>
+                        <span>Real-Time Biometric & Geofence Attendance</span>
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">Both live face recognition and classroom GPS verification are strictly required within active period time windows.</p>
+                </div>
+
+                <form onsubmit="submitGeoAttendance(event)" class="space-y-5">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Day Selection (Locked to today) -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Day (Locked to Today)</label>
+                            <select id="att-day-select" disabled class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 font-bold focus:outline-none cursor-not-allowed opacity-90">
+                                <option value="Monday">Monday</option>
+                                <option value="Tuesday">Tuesday</option>
+                                <option value="Wednesday">Wednesday</option>
+                                <option value="Thursday">Thursday</option>
+                                <option value="Friday">Friday</option>
+                                <option value="Saturday">Saturday</option>
+                                <option value="Sunday">Sunday</option>
+                            </select>
+                        </div>
+
+                        <!-- Period Selection -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Select Active Period</label>
+                            <select id="att-period-select" onchange="updatePeriodTimingNotice()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
+                                <option value="p1">Period 1 (09:15 - 10:05)</option>
+                                <option value="p2">Period 2 (10:05 - 10:55)</option>
+                                <option value="p3">Period 3 (11:05 - 11:55)</option>
+                                <option value="p4">Period 4 (11:55 - 12:45)</option>
+                                <option value="p5">Period 5 (01:30 - 02:20)</option>
+                                <option value="p6">Period 6 (02:20 - 03:10)</option>
+                                <option value="p7">Period 7 (03:10 - 04:00)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Live Period Time Info Notice -->
+                    <div id="period-time-notice" class="bg-slate-900/60 border border-slate-700/80 p-3 rounded-xl flex items-center justify-between text-xs text-slate-300">
+                        <span class="font-medium">Checking live period schedule status...</span>
+                    </div>
+
+                    <!-- Step 1: Face Verification -->
+                    <div class="border border-slate-700/80 bg-slate-900/40 p-4 rounded-xl space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-200">Factor 1: Live Face Verification</span>
+                            <span id="face-indicator" class="text-[11px] font-bold text-amber-500 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">Not Verified</span>
+                        </div>
+                        <p id="face-status-text" class="text-xs text-slate-400">Verify your face using the live webcam prior to submitting.</p>
+                        <button type="button" onclick="startFaceVerification()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2 rounded-xl transition flex items-center space-x-2">
+                            <i data-lucide="camera" class="w-4 h-4"></i>
+                            <span>Verify Registered Face</span>
+                        </button>
+                    </div>
+
+                    <!-- Step 2: GPS Verification -->
+                    <div class="border border-slate-700/80 bg-slate-900/40 p-4 rounded-xl space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-200">Factor 2: Geofence Location</span>
+                            <span id="gps-indicator" class="text-[11px] font-bold text-amber-500 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">Location Not Verified</span>
+                        </div>
+                        <p class="text-xs text-slate-400">Must be present within the designated campus classroom geofence.</p>
+                        <button type="button" onclick="verifyLocation()" class="bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs px-4 py-2 rounded-xl transition flex items-center space-x-2">
+                            <i data-lucide="navigation" class="w-4 h-4"></i>
+                            <span>Check GPS Geofence</span>
+                        </button>
+                    </div>
+
+                    <button type="submit" id="btn-submit-attendance" disabled class="w-full bg-slate-700 text-slate-500 font-bold text-xs py-3 rounded-xl transition cursor-not-allowed">
+                        Submit Verified Attendance
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- VIEW 4: TIMETABLE VIEW -->
+        <section id="view-timetable" class="hidden space-y-4">
+            <div class="bg-slate-800/60 border border-slate-700/60 p-5 rounded-2xl flex items-center justify-between">
+                <div>
+                    <h2 class="text-base font-bold text-slate-100">Class Schedule & Timetable</h2>
+                    <p class="text-xs text-slate-400">Standard period schedule breakdown across academic days.</p>
+                </div>
+            </div>
+            <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400 font-bold text-[10px] uppercase">
+                            <th class="py-2.5 px-3">Day</th>
+                            <th class="py-2.5 px-3">P1 (09:15)</th>
+                            <th class="py-2.5 px-3">P2 (10:05)</th>
+                            <th class="py-2.5 px-3">P3 (11:05)</th>
+                            <th class="py-2.5 px-3">P4 (11:55)</th>
+                            <th class="py-2.5 px-3">P5 (01:30)</th>
+                            <th class="py-2.5 px-3">P6 (02:20)</th>
+                            <th class="py-2.5 px-3">P7 (03:10)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="timetable-body" class="divide-y divide-slate-700/50 text-slate-300">
+                        <!-- Rendered dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- CAMERA / FACE VERIFICATION MODAL -->
+    <div id="face-modal" class="hidden fixed inset-0 modal-overlay backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-5 space-y-4 relative shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+                <h3 id="modal-title" class="text-sm font-bold text-slate-100">Biometric Live Camera Capture</h3>
+                <button onclick="closeFaceCamera()" class="text-slate-400 hover:text-slate-200">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Video Stream Container -->
+            <div class="relative bg-black rounded-xl overflow-hidden aspect-video flex items-center justify-center border border-slate-700">
+                <video id="webcam-video" autoplay muted playsinline class="w-full h-full object-cover"></video>
+                <div id="face-guide-overlay" class="absolute border-2 border-emerald-400/60 rounded-full w-40 h-52 pointer-events-none animate-pulse"></div>
+            </div>
+
+            <!-- Modal Live Feedback Status -->
+            <div id="modal-status-box" class="bg-slate-900 border border-slate-700 p-3 rounded-xl text-center">
+                <p id="modal-status-text" class="text-xs font-semibold text-slate-300">Initializing face model detection...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- APPLICATION LOGIC SCRIPT -->
+    <script>
+        // Campus Coordinates Geofence target (ASCET Classroom Area)
+        const CAMPUS_GEOFENCE = {
+            latitude: 14.9830,
+            longitude: 79.9860,
+            allowedRadiusMeters: 200000 // Geofence radius
+        };
+
+        const FACE_MATCH_THRESHOLD = 0.45;
+
+        // Period timing metadata
+        const periodMeta = {
+            p1: { name: "Period 1", time: "09:15 - 10:05" },
+            p2: { name: "Period 2", time: "10:05 - 10:55" },
+            p3: { name: "Period 3", time: "11:05 - 11:55" },
+            p4: { name: "Period 4", time: "11:55 - 12:45" },
+            p5: { name: "Period 5", time: "01:30 - 02:20" },
+            p6: { name: "Period 6", time: "02:20 - 03:10" },
+            p7: { name: "Period 7", time: "03:10 - 04:00" }
+        };
+
+        // Application In-Memory DB
+        const MemoryDB = {
+            users: [],
+            attendance: [
+                { id: 1, rollNo: "21ASC001", date: "2026-10-07", day: "Wednesday", period: "p1", subject: "Compiler Design", status: "Present", verificationMethod: "Face + GPS" }
+            ],
+            schedules: {
+                "CSE-H": {
+                    Monday: { p1: "Compiler Design", p2: "Web Tech", p3: "Cloud Comp", p4: "AI & ML", p5: "Cyber Sec", p6: "Lab", p7: "Lab" },
+                    Tuesday: { p1: "AI & ML", p2: "Compiler Design", p3: "Web Tech", p4: "Cloud Comp", p5: "Data Mining", p6: "Seminar", p7: "Sports" },
+                    Wednesday: { p1: "Compiler Design", p2: "Cloud Comp", p3: "AI & ML", p4: "Web Tech", p5: "Cyber Sec", p6: "Library", p7: "Mentoring" },
+                    Thursday: { p1: "Web Tech", p2: "AI & ML", p3: "Compiler Design", p4: "Cloud Comp", p5: "Lab", p6: "Lab", p7: "Lab" },
+                    Friday: { p1: "Cloud Comp", p2: "Cyber Sec", p3: "Web Tech", p4: "Compiler Design", p5: "AI & ML", p6: "Project", p7: "Project" },
+                    Saturday: { p1: "Cyber Sec", p2: "Data Mining", p3: "Seminar", p4: "Placement", p5: "Free", p6: "Free", p7: "Free" },
+                    Sunday: { p1: "Holiday", p2: "Holiday", p3: "Holiday", p4: "Holiday", p5: "Holiday", p6: "Holiday", p7: "Holiday" }
+                }
+            }
+        };
+
+        let currentUser = null;
+        let faceVerificationDescriptor = null;
+        let faceEnrollmentDescriptor = null;
+        let gpsVerified = false;
+        let faceModelsLoaded = false;
+        let webcamStream = null;
+        let faceBusy = false;
+
+        // Save & Restore persistent users
+        function persistUsers() {
+            localStorage.setItem('ascet_users', JSON.stringify(MemoryDB.users));
+        }
+
+        function restoreUsers() {
+            const stored = localStorage.getItem('ascet_users');
+            if (stored) {
+                try { MemoryDB.users = JSON.parse(stored); } catch (e) { }
+            }
+        }
+
+        // Helper: Convert JS Day Index to String Name
+        function getTodayString() {
+            const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            return days[new Date().getDay()];
+        }
+
+        // Helper: Strict Time-Window Check for Given Period
+        function isCurrentTimeInPeriod(timeRangeStr) {
+            if (!timeRangeStr || !timeRangeStr.includes('-')) return false;
+
+            const [startStr, endStr] = timeRangeStr.split('-').map(s => s.trim());
+            const now = new Date();
+
+            // Parse hours & minutes (supporting 12-hour format strings like 09:15, 01:30)
+            function parseTimeString(timeStr) {
+                let [h, m] = timeStr.split(':').map(Number);
+                // Afternoon adjustments for period 5, 6, 7 (01:30, 02:20, 03:10)
+                if (h >= 1 && h <= 4) h += 12;
+                return { hours: h, minutes: m };
+            }
+
+            const startP = parseTimeString(startStr);
+            const endP = parseTimeString(endStr);
+
+            const startTime = new Date(now);
+            startTime.setHours(startP.hours, startP.minutes, 0, 0);
+
+            const endTime = new Date(now);
+            endTime.setHours(endP.hours, endP.minutes, 0, 0);
+
+            return now >= startTime && now <= endTime;
+        }
+
+        // Real-Time Distance Calculation (Haversine Formula)
+        function calculateDistanceMeters(lat1, lon1, lat2, lon2) {
+            const R = 6371e3;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        // UI Tabs & Views Switcher
+        function switchTab(tabId) {
+            ['dashboard', 'geo-attendance', 'timetable'].forEach(t => {
+                const view = document.getElementById(`view-${t}`);
+                const btn = document.getElementById(`tab-btn-${t}`);
+                if (view) view.classList.add('hidden');
+                if (btn) {
+                    btn.className = 'px-4 py-2 text-xs font-bold rounded-xl transition flex items-center space-x-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800';
+                }
+            });
+
+            const activeView = document.getElementById(`view-${tabId}`);
+            const activeBtn = document.getElementById(`tab-btn-${tabId}`);
+            if (activeView) activeView.classList.remove('hidden');
+            if (activeBtn) {
+                activeBtn.className = 'px-4 py-2 text-xs font-bold rounded-xl transition flex items-center space-x-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+            }
+
+            if (tabId === 'geo-attendance') {
+                faceVerificationDescriptor = null;
+                gpsVerified = false;
+
+                // Force today's date/day and lock day selection
+                const todayName = getTodayString();
+                const daySelect = document.getElementById('att-day-select');
+                if (daySelect) {
+                    daySelect.value = todayName;
+                    daySelect.disabled = true;
+                }
+
+                setFacePageStatus(false, 'Verify your registered face before submitting attendance.');
+                const gpsInd = document.getElementById('gps-indicator');
+                if (gpsInd) {
+                    gpsInd.className = 'text-[11px] font-bold text-amber-500 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20';
+                    gpsInd.innerText = 'Location Not Verified';
+                }
+                updatePeriodTimingNotice();
+                updateAttendanceButton();
+            }
+
+            if (tabId === 'timetable') renderTimetable();
+        }
+
+        function switchAuthMode(mode) {
+            const loginForm = document.getElementById('form-login');
+            const signupForm = document.getElementById('form-signup');
+            const loginTab = document.getElementById('auth-tab-login');
+            const signupTab = document.getElementById('auth-tab-signup');
+
+            if (mode === 'login') {
+                loginForm.classList.remove('hidden');
+                signupForm.classList.add('hidden');
+                loginTab.className = 'flex-1 py-2 text-sm font-bold text-center text-emerald-400 border-b-2 border-emerald-400';
+                signupTab.className = 'flex-1 py-2 text-sm font-bold text-center text-slate-400 hover:text-slate-200';
+            } else {
+                loginForm.classList.add('hidden');
+                signupForm.classList.remove('hidden');
+                signupTab.className = 'flex-1 py-2 text-sm font-bold text-center text-emerald-400 border-b-2 border-emerald-400';
+                loginTab.className = 'flex-1 py-2 text-sm font-bold text-center text-slate-400 hover:text-slate-200';
+            }
+        }
+
+        // Live Period Active Notice Updates
+        function updatePeriodTimingNotice() {
+            const noticeEl = document.getElementById('period-time-notice');
+            if (!noticeEl) return;
+
+            const selectedKey = document.getElementById('att-period-select').value;
+            const periodInfo = periodMeta[selectedKey];
+
+            if (!periodInfo) return;
+
+            const isActiveNow = isCurrentTimeInPeriod(periodInfo.time);
+
+            if (isActiveNow) {
+                noticeEl.className = 'bg-emerald-500/10 border border-emerald-500/30 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-400 font-semibold';
+                noticeEl.innerHTML = `<span><i data-lucide="clock" class="w-4 h-4 inline mr-1.5"></i> ${periodInfo.name} (${periodInfo.time}) is currently ACTIVE.</span> <span class="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider">Live Window</span>`;
+            } else {
+                noticeEl.className = 'bg-rose-500/10 border border-rose-500/30 p-3 rounded-xl flex items-center justify-between text-xs text-rose-400 font-semibold';
+                noticeEl.innerHTML = `<span><i data-lucide="alert-circle" class="w-4 h-4 inline mr-1.5"></i> ${periodInfo.name} (${periodInfo.time}) is INACTIVE or EXPIRED.</span> <span class="bg-rose-500/20 text-rose-300 text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider">Blocked</span>`;
+            }
+            lucide.createIcons();
+        }
+
+        // Authentication Handlers
+        function handleLoginSubmit(e) {
+            e.preventDefault();
+            const roll = document.getElementById('login-rollno').value.trim().toUpperCase();
+            const pass = document.getElementById('login-password').value;
+
+            const user = MemoryDB.users.find(u => u.rollNo.toUpperCase() === roll && u.password === pass);
+
+            if (!user) {
+                alert('Invalid Credentials. Please check Roll Number / Password.');
+                return;
+            }
+
+            currentUser = user;
+            setupAuthenticatedUI();
+        }
+
+        function handleSignupSubmit(e) {
+            e.preventDefault();
+            const name = document.getElementById('signup-name').value.trim();
+            const rollNo = document.getElementById('signup-rollno').value.trim().toUpperCase();
+            const section = document.getElementById('signup-section').value;
+            const password = document.getElementById('signup-password').value;
+
+            if (!faceEnrollmentDescriptor) {
+                alert('Biometric face registration is required before completing registration.');
+                return;
+            }
+
+            if (MemoryDB.users.some(u => u.rollNo.toUpperCase() === rollNo)) {
+                alert('A student account with this Roll Number already exists.');
+                return;
+            }
+
+            const newUser = {
+                rollNo,
+                name,
+                section,
+                password,
+                role: 'student',
+                faceDescriptor: faceEnrollmentDescriptor
+            };
+
+            MemoryDB.users.push(newUser);
+            persistUsers();
+
+            alert('Registration Successful! Logging into your account.');
+            currentUser = newUser;
+            setupAuthenticatedUI();
+        }
+
+        function setupAuthenticatedUI() {
+            document.getElementById('view-auth').classList.add('hidden');
+            document.getElementById('app-tabs').classList.remove('hidden');
+
+            const navUserArea = document.getElementById('nav-user-area');
+            navUserArea.innerHTML = `
+                <div class="text-right">
+                    <p class="text-xs font-bold text-slate-100">${currentUser.name}</p>
+                    <p class="text-[10px] text-slate-400 font-mono">${currentUser.rollNo} • ${currentUser.section}</p>
+                </div>
+                <button onclick="logout()" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded-xl border border-slate-700 transition">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                </button>
+            `;
+            lucide.createIcons();
+
+            renderDashboardData();
+            switchTab('dashboard');
+        }
+
+        function logout() {
+            currentUser = null;
+            faceVerificationDescriptor = null;
+            faceEnrollmentDescriptor = null;
+            gpsVerified = false;
+            document.getElementById('app-tabs').classList.add('hidden');
+            document.getElementById('view-dashboard').classList.add('hidden');
+            document.getElementById('view-geo-attendance').classList.add('hidden');
+            document.getElementById('view-timetable').classList.add('hidden');
+            document.getElementById('view-auth').classList.remove('hidden');
+        }
+
+        // Dashboard Data Rendering
+        function renderDashboardData() {
+            const header = document.getElementById('dashboard-header');
+            header.innerHTML = `
+                <div>
+                    <h2 class="text-base font-bold text-slate-100">Welcome back, ${currentUser.name} 👋</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Role: ${currentUser.role.toUpperCase()} • Section: ${currentUser.section} • Today: ${getTodayString()}</p>
+                </div>
+            `;
+
+            const stats = document.getElementById('dashboard-stats');
+            const totalLogs = MemoryDB.attendance.filter(a => currentUser.role === 'admin' || a.rollNo === currentUser.rollNo);
+            const presentLogs = totalLogs.filter(a => a.status === 'Present');
+            const rate = totalLogs.length ? Math.round((presentLogs.length / totalLogs.length) * 100) : 100;
+
+            stats.innerHTML = `
+                <div class="bg-slate-800/60 border border-slate-700/60 p-4 rounded-2xl">
+                    <p class="text-[11px] font-semibold text-slate-400">Total Attendance Logs</p>
+                    <p class="text-2xl font-black text-slate-100 mt-1">${totalLogs.length}</p>
+                </div>
+                <div class="bg-slate-800/60 border border-slate-700/60 p-4 rounded-2xl">
+                    <p class="text-[11px] font-semibold text-slate-400">Classes Attended</p>
+                    <p class="text-2xl font-black text-emerald-400 mt-1">${presentLogs.length}</p>
+                </div>
+                <div class="bg-slate-800/60 border border-slate-700/60 p-4 rounded-2xl">
+                    <p class="text-[11px] font-semibold text-slate-400">Attendance Percentage</p>
+                    <p class="text-2xl font-black text-indigo-400 mt-1">${rate}%</p>
+                </div>
+            `;
+
+            const tbody = document.getElementById('table-attendance-logs');
+            tbody.innerHTML = '';
+
+            const displayLogs = [...totalLogs].reverse();
+            if (displayLogs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-slate-500">No attendance records found.</td></tr>`;
+                return;
+            }
+
+            displayLogs.forEach(log => {
+                const periodName = periodMeta[log.period] ? periodMeta[log.period].name : log.period;
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/40';
+                tr.innerHTML = `
+                    <td class="py-3 px-2 font-semibold text-slate-200">${log.rollNo}</td>
+                    <td class="py-3 px-2 text-slate-400">${log.date} (${log.day})</td>
+                    <td class="py-3 px-2 text-slate-300 font-medium">${periodName} - ${log.subject}</td>
+                    <td class="py-3 px-2"><span class="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">${log.verificationMethod || 'Face + GPS'}</span></td>
+                    <td class="py-3 px-2"><span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">${log.status}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Render Timetable
+        function renderTimetable() {
+            const tbody = document.getElementById('timetable-body');
+            tbody.innerHTML = '';
+            const userSec = (currentUser && currentUser.section !== 'ALL') ? currentUser.section : 'CSE-H';
+            const sched = MemoryDB.schedules[userSec] || MemoryDB.schedules['CSE-H'];
+
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            days.forEach(day => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/40';
+                let html = `<td class="py-3 px-3 font-bold text-slate-200">${day}</td>`;
+                ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'].forEach(p => {
+                    const sub = (sched[day] && sched[day][p]) ? sched[day][p] : '-';
+                    html += `<td class="py-3 px-3 text-slate-400">${sub}</td>`;
+                });
+                tr.innerHTML = html;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Status Update Indicators for Attendance Submission
+        function setFacePageStatus(ok, message) {
+            const faceInd = document.getElementById('face-indicator');
+            const faceText = document.getElementById('face-status-text');
+
+            if (faceInd) {
+                faceInd.className = ok 
+                    ? 'text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20'
+                    : 'text-[11px] font-bold text-amber-500 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20';
+                faceInd.innerText = ok ? 'Face Verified ✓' : 'Not Verified';
+            }
+            if (faceText) faceText.innerText = message;
+        }
+
+        function updateAttendanceButton() {
+            const btn = document.getElementById('btn-submit-attendance');
+            if (!btn) return;
+
+            if (faceVerificationDescriptor && gpsVerified) {
+                btn.disabled = false;
+                btn.className = 'w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3 rounded-xl transition shadow-lg shadow-emerald-600/20 cursor-pointer';
+                btn.innerText = 'Submit Verified Attendance ✓';
+            } else {
+                btn.disabled = true;
+                btn.className = 'w-full bg-slate-700 text-slate-500 font-bold text-xs py-3 rounded-xl transition cursor-not-allowed';
+                btn.innerText = 'Submit Verified Attendance (Complete Face & GPS First)';
+            }
+        }
+
+        // GPS Verification Wrapper
+        function verifyLocation() {
+            gpsVerified = false;
+            updateAttendanceButton();
+
+            if (!navigator.geolocation) {
+                alert('Geolocation is not supported by your browser.');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const dist = calculateDistanceMeters(
+                        pos.coords.latitude,
+                        pos.coords.longitude,
+                        CAMPUS_GEOFENCE.latitude,
+                        CAMPUS_GEOFENCE.longitude
+                    );
+
+                    gpsVerified = dist <= CAMPUS_GEOFENCE.allowedRadiusMeters;
+
+                    const gpsInd = document.getElementById('gps-indicator');
+                    if (gpsInd) {
+                        if (gpsVerified) {
+                            gpsInd.className = 'text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20';
+                            gpsInd.innerText = 'Classroom Location Verified ✓';
+                        } else {
+                            gpsInd.className = 'text-[11px] font-bold text-rose-500 bg-rose-500/10 px-2.5 py-0.5 rounded-full border border-rose-500/20';
+                            gpsInd.innerText = 'Outside Geofence Area';
+                            alert(`Geofence failed: You are outside classroom radius.`);
+                        }
+                    }
+                    updateAttendanceButton();
+                },
+                (err) => {
+                    gpsVerified = false;
+                    alert('Location access denied or unavailable: ' + err.message);
+                    updateAttendanceButton();
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        }
+
+        // REAL-TIME GUARDED ATTENDANCE SUBMISSION
+        function submitGeoAttendance(e) {
+            e.preventDefault();
+            if (!currentUser) return;
+
+            const todayName = getTodayString();
+            const selectedDay = document.getElementById('att-day-select').value;
+            const periodKey = document.getElementById('att-period-select').value;
+
+            // 1. Strict Current Day Check
+            if (selectedDay !== todayName) {
+                alert(`Attendance blocked: You can only mark attendance for today (${todayName}).`);
+                return;
+            }
+
+            // 2. Strict Real-Time Window Check
+            const periodInfo = periodMeta[periodKey];
+            if (!periodInfo || !isCurrentTimeInPeriod(periodInfo.time)) {
+                alert(`Attendance blocked: ${periodInfo ? periodInfo.name : ''} (${periodInfo ? periodInfo.time : ''}) is not active right now. Past or future periods cannot be marked.`);
+                return;
+            }
+
+            // 3. Biometric Verification Guard
+            if (!faceVerificationDescriptor) {
+                alert('Attendance blocked: Verify your registered face first.');
+                return;
+            }
+
+            // 4. Geofence Location Guard
+            if (!gpsVerified) {
+                alert('Attendance blocked: Verify your classroom GPS location first.');
+                return;
+            }
+
+            const userSection = currentUser.section === 'ALL' ? 'CSE-H' : currentUser.section;
+            const sched = MemoryDB.schedules[userSection] || MemoryDB.schedules['CSE-H'];
+            const subject = (sched[todayName] && sched[todayName][periodKey]) ? sched[todayName][periodKey] : 'General Class';
+
+            // 5. Prevent Duplicate Attendance Record
+            const todayDateStr = new Date().toISOString().split('T')[0];
+            const existing = MemoryDB.attendance.find(
+                a => a.rollNo === currentUser.rollNo && a.date === todayDateStr && a.period === periodKey
+            );
+            if (existing) {
+                alert(`Attendance for ${todayName} ${periodInfo.name} is already recorded as "${existing.status}".`);
+                return;
+            }
+
+            // Push Verified Real-Time Record
+            MemoryDB.attendance.push({
+                id: Date.now(),
+                rollNo: currentUser.rollNo,
+                date: todayDateStr,
+                day: todayName,
+                period: periodKey,
+                subject,
+                status: 'Present',
+                locationVerified: true,
+                faceVerified: true,
+                verificationMethod: 'Face + GPS (Real-Time)',
+                faceVerifiedAt: new Date().toISOString()
+            });
+
+            alert(`Attendance successfully marked for ${periodInfo.name} (${subject})!`);
+            renderDashboardData();
+            switchTab('dashboard');
+        }
+
+        // Face-API Initialization & Webcam logic
+        async function loadFaceModels() {
+            if (faceModelsLoaded) return true;
+            try {
+                const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
+                faceModelsLoaded = true;
+                return true;
+            } catch (e) {
+                console.error("Face models failed to load", e);
+                return false;
+            }
+        }
+
+        function setFaceModalStatus(text, state) {
+            const el = document.getElementById('modal-status-text');
+            if (el) el.innerText = text;
+        }
+
+        async function openFaceCamera(mode) {
+            if (faceBusy) return;
+            faceBusy = true;
+
+            const modal = document.getElementById('face-modal');
+            modal.classList.remove('hidden');
+            setFaceModalStatus('Loading biometric AI models...', 'wait');
+
+            const loaded = await loadFaceModels();
+            if (!loaded) {
+                setFaceModalStatus('Failed to load face detection models. Check connection.', 'bad');
+                faceBusy = false;
+                return;
+            }
+
+            try {
+                const video = document.getElementById('webcam-video');
+                webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+                video.srcObject = webcamStream;
+                await video.play();
+
+                processFaceStream(mode);
+            } catch (err) {
+                setFaceModalStatus('Camera access denied or unreadable.', 'bad');
+                faceBusy = false;
+            }
+        }
+
+        function closeFaceCamera() {
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(t => t.stop());
+                webcamStream = null;
+            }
+            document.getElementById('face-modal').classList.add('hidden');
+            faceBusy = false;
+        }
+
+        async function processFaceStream(mode) {
+            const video = document.getElementById('webcam-video');
+            const isEnrollment = mode === 'enroll';
+            let stableFaceFrames = 0;
+            let bestDescriptor = null;
+
+            setFaceModalStatus('Look directly at the camera...', 'wait');
+
+            for (let i = 0; i < 30; i++) {
+                if (!webcamStream) break;
+
+                const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+                    .withFaceLandmarks()
+                    .withFaceDescriptor();
+
+                if (detection) {
+                    stableFaceFrames++;
+                    bestDescriptor = detection.descriptor;
+                    setFaceModalStatus(`Face detected ✓ Hold steady (${stableFaceFrames}/5)`, 'ok');
+
+                    if (stableFaceFrames >= 5) {
+                        break;
+                    }
+                } else {
+                    stableFaceFrames = 0;
+                    setFaceModalStatus('Searching for face. Center your face in frame...', 'wait');
+                }
+
+                await new Promise(r => setTimeout(r, 150));
+            }
+
+            if (!bestDescriptor || stableFaceFrames < 5) {
+                setFaceModalStatus('Could not complete face capture. Try again in clear lighting.', 'bad');
+                faceBusy = false;
+                return;
+            }
+
+            if (isEnrollment) {
+                faceEnrollmentDescriptor = Array.from(bestDescriptor);
+                document.getElementById('reg-face-token').value = JSON.stringify(faceEnrollmentDescriptor);
+
+                const status = document.getElementById('signup-face-status');
+                status.innerText = 'Face registered successfully ✓';
+                status.className = 'text-[11px] text-emerald-400 font-bold';
+
+                document.getElementById('btn-register-face').innerText = 'Registered ✓';
+                document.getElementById('btn-register-face').className = 'bg-emerald-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl cursor-default';
+
+                setFaceModalStatus('Face baseline registered successfully ✓', 'ok');
+                setTimeout(closeFaceCamera, 800);
+            } else {
+                const saved = currentUser && currentUser.faceDescriptor;
+
+                if (!saved || !Array.isArray(saved)) {
+                    setFaceModalStatus('No registered biometric template found. Please re-register.', 'bad');
+                    faceBusy = false;
+                    return;
+                }
+
+                const distance = faceapi.euclideanDistance(saved, bestDescriptor);
+
+                if (distance <= FACE_MATCH_THRESHOLD) {
+                    faceVerificationDescriptor = Array.from(bestDescriptor);
+                    setFacePageStatus(true, 'Registered face verified successfully.');
+                    setFaceModalStatus('Biometric face match confirmed ✓', 'ok');
+                    updateAttendanceButton();
+                    setTimeout(closeFaceCamera, 800);
+                } else {
+                    faceVerificationDescriptor = null;
+                    setFacePageStatus(false, 'Biometric face match failed.');
+                    setFaceModalStatus('Face mismatch. Verification failed.', 'bad');
+                }
+            }
+
+            faceBusy = false;
+        }
+
+        async function startFaceEnrollment() {
+            await openFaceCamera('enroll');
+        }
+
+        async function startFaceVerification() {
+            if (!currentUser || currentUser.role === 'admin') {
+                alert('Face attendance is intended for student accounts.');
+                return;
+            }
+            faceVerificationDescriptor = null;
+            setFacePageStatus(false, 'Verifying registered face...');
+            updateAttendanceButton();
+            await openFaceCamera('verify');
+        }
+
+        // Initialize Icons & Restored Persistence
+        restoreUsers();
+
+        // Built-in Admin Account Initialization
+        if (!MemoryDB.users.some(u => u.rollNo === 'ADMIN')) {
+            MemoryDB.users.unshift({
+                rollNo: 'ADMIN', password: 'admin123', name: 'ASCET Admin', section: 'ALL', role: 'admin'
+            });
+        }
+
+        lucide.createIcons();
+    </script>
+</body>
+</html>
